@@ -1,0 +1,180 @@
+/* ============================================================
+   @squaresharedev/grid — grid stylesheet (both modes).
+   Import once in your app css: @import "@squaresharedev/grid/styles.css";
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   GRID CSS VARIABLES — package defaults, deliberately declared at
+   ZERO specificity (:where) so ANY consumer declaration wins, e.g.
+   a Tailwind v4 @theme value, a plain :root override, or the SQ-app
+   Settings page writing --grid-gap / --grid-columns / --grid-cell-size
+   onto document.documentElement at runtime (that runtime contract is
+   why positioned mode reads these vars off the root element).
+   NOTE: positioned mode parses --grid-columns/--grid-gap with parseInt,
+   so give them unitless/px values (rem values parse as 0 → fallback).
+   ------------------------------------------------------------ */
+:where(:root) {
+  --grid-columns: 12;
+  --grid-gap: 12px;
+  --grid-cell-size: 120px;
+}
+/* Responsive defaults (from the SQ-app token sheet): fewer, tighter
+   columns on small screens. Also zero specificity — override freely. */
+@media (max-width: 768px) {
+  :where(:root) {
+    --grid-columns: 6;
+    --grid-gap: 6px;
+  }
+}
+@media (max-width: 480px) {
+  :where(:root) {
+    --grid-columns: 4;
+    --grid-gap: 4px;
+  }
+}
+
+/* ============================================================
+   FLOW MODE  (Grid.tsx) — rules verbatim from SQ-store globals.css.
+   Presentation-agnostic grid used by the storefront builder AND the
+   marketplace. Cells are TRUE squares at any width: row height is derived
+   from the container's inline size so it always equals a column's width,
+   including the gap. Blocks span 1x1 / 2x1 / 2x2 with ONE equal gap on all
+   four sides (no shared/intersecting borders). Column counts are injected
+   from gridConstants via --ss-cols-desktop / --ss-cols-mobile.
+   ============================================================ */
+.ss-grid-container {
+  container-type: inline-size;
+}
+.ss-grid {
+  --ss-cols: var(--ss-cols-mobile, 2);
+  display: grid;
+  grid-template-columns: repeat(var(--ss-cols), minmax(0, 1fr));
+  /* row height = column width = (container - gaps) / columns → square cells */
+  grid-auto-rows: calc(
+    (100cqw - (var(--ss-cols) - 1) * var(--grid-gap)) / var(--ss-cols)
+  );
+  gap: var(--grid-gap);
+}
+/* Container query (not viewport): the column switch keys off the grid's OWN
+   width, the same box the 100cqw row-height math measures — so a grid embedded
+   in a narrow panel drops to the mobile column count regardless of viewport. */
+@container (min-width: 40rem) {
+  .ss-grid {
+    --ss-cols: var(--ss-cols-desktop, 4);
+  }
+}
+/* Grid density: overrides the --grid-gap custom property that .ss-grid's gap
+   AND square-cell row math both consume (so cells stay true squares at every
+   density). Applied on a grid ancestor via the fixed enum→class map in
+   components/storefront/config-maps.ts — never from raw user values. */
+.ss-gap-compact {
+  --grid-gap: 0.25rem;
+}
+.ss-gap-comfy {
+  --grid-gap: 0.5rem;
+}
+.ss-gap-spacious {
+  --grid-gap: 1rem;
+}
+
+/* ============================================================
+   POSITIONED MODE  (PositionedGrid.tsx) — explicit coordinates.
+   Plain CSS (no Tailwind required at the consumer): the look is
+   driven by CSS vars with neutral fallbacks, themeable per app.
+   Layout itself (template columns/rows, gap, item placement) is
+   inline style, computed from the same CSS vars as the old
+   GridCanvas (cellSize = (width - (cols-1)*gap) / cols).
+   ============================================================ */
+
+/* Dashed empty-cell backdrop, matching the reference look
+   (border-border/30 + bg-muted/10 + card radius). */
+.ss-pgrid-cell {
+  pointer-events: none;
+  border: 1px dashed
+    var(
+      --ss-pgrid-cell-border,
+      color-mix(in srgb, var(--color-border, #e4e4e7) 30%, transparent)
+    );
+  border-radius: var(--ss-pgrid-radius, var(--radius-card, 4px));
+  background: var(
+    --ss-pgrid-cell-bg,
+    color-mix(in srgb, var(--color-muted, #f4f4f5) 10%, transparent)
+  );
+}
+
+/* Floating drag-overlay frame (the card content is consumer-rendered):
+   card radius + 2px foreground ring + a deep shadow, per the reference. */
+.ss-pgrid-overlay {
+  border-radius: var(--ss-pgrid-radius, var(--radius-card, 4px));
+  box-shadow:
+    0 0 0 2px
+      var(
+        --ss-pgrid-overlay-ring,
+        color-mix(in srgb, var(--color-foreground, #000) 20%, transparent)
+      ),
+    0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* ------------------------------------------------------------
+   SPAN PRESET PICKER (SpanPresetPicker.tsx) — the resize control
+   consumer cards plug into their corner (the old Resizer's slot).
+   Replicates the reference pill + popover styling on CSS vars.
+   ------------------------------------------------------------ */
+.ss-resizer {
+  position: relative;
+}
+.ss-resizer-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--color-foreground, #000);
+  color: var(--color-accent-foreground, #fff);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  transition: all var(--duration-fast, 120ms);
+}
+.ss-resizer-trigger:hover {
+  transform: scale(1.1);
+  background: color-mix(in srgb, var(--color-foreground, #000) 70%, transparent);
+}
+.ss-resizer-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: var(--radius-card, 4px);
+  border: 1px solid var(--color-border, #e4e4e7);
+  background: var(--color-background, #fff);
+  padding: 0.375rem;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+.ss-resizer-option {
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 9999px);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  background: var(--color-muted, #f4f4f5);
+  color: var(--color-foreground, #000);
+  transition: all var(--duration-fast, 120ms);
+}
+.ss-resizer-option:hover {
+  background: color-mix(in srgb, var(--color-foreground, #000) 10%, transparent);
+  transform: scale(1.05);
+}
+.ss-resizer-option[data-active="true"] {
+  background: var(--color-foreground, #000);
+  color: var(--color-accent-foreground, #fff);
+}

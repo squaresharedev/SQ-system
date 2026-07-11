@@ -1,0 +1,53 @@
+{
+  "name": "@squaresharedev/db",
+  "version": "0.1.0",
+  "description": "SquareShare Supabase client factories (@supabase/ssr) + the shared session cookie options",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/squaresharedev/SQ-system.git",
+    "directory": "packages/db"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "peerDependencies": {
+    "@supabase/ssr": ">=0.6.0 <1.0.0",
+    "@supabase/supabase-js": "^2.43.4",
+    "next": ">=15.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.43.4",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  }
+}

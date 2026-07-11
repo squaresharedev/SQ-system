@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+
+# Build-time needs are declared explicitly as devDependencies; don't
+# auto-install peers (it would pull all of `next` into @squaresharedev/db,
+# which types next/headers via a local ambient shim instead).
+autoInstallPeers: false

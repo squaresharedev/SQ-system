@@ -1,0 +1,170 @@
+/*
+ * tokens.css — design tokens + all custom CSS for the SquareShare/Allgrid UI.
+ *
+ * Source: frontend/src/index.css (lines 1-159, the entire file) in the
+ * SQ-app repo, copied EXACTLY as of commit 6f30559. The only permitted
+ * partial-file extraction in ui-export/ — nothing below this comment
+ * block has been altered.
+ *
+ * Requires Tailwind CSS v4 (CSS-first config: the @theme block below
+ * replaces tailwind.config.ts).
+ */
+
+@import "tailwindcss";
+
+/*
+ * Allgrid — Swiss-Minimalist Theme
+ *
+ * Tailwind CSS v4 uses CSS-first configuration.
+ * All design tokens live here via @theme — no tailwind.config.ts needed.
+ */
+@theme {
+  /* ── Color Palette ────────────────────────────── */
+  --color-background: #ffffff;
+  --color-foreground: #000000;
+  --color-border: #e4e4e7;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-accent: #000000;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #dc2626;
+
+  /* ── Grid System ──────────────────────────────── */
+  --grid-columns: 12;
+  --grid-gap: 12px;
+  --grid-cell-size: 120px;
+
+  /* ── Geometry / Radii ─────────────────────────── */
+  --radius-sharp: 0px;
+  --radius-card: 4px;
+  --radius-pill: 9999px;
+
+  /* ── Typography (system Swiss stack) ──────────── */
+  --font-sans: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+
+  /* ── Shadows ──────────────────────────────────── */
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+  /* ── Transitions ──────────────────────────────── */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+}
+
+/* ── Base Resets ────────────────────────────────── */
+*,
+*::before,
+*::after {
+  border-color: var(--color-border);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent horizontal scroll on narrow phones */
+  overflow-x: hidden;
+  /* Better tap behavior on iOS */
+  -webkit-tap-highlight-color: transparent;
+  /* Don't let iOS auto-zoom inputs that have < 16px font */
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* iOS safe areas — components opt in by referencing these vars. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* ── Button upload spinner (green line around a square) ── */
+.btn-upload-loader {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.btn-upload-loader::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 55%,
+    #22c55e 80%,
+    #4ade80 100%
+  );
+  animation: border-flash-spin 1s linear infinite;
+}
+.btn-upload-loader::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--color-foreground);
+  border-radius: 1.5px;
+}
+
+@keyframes border-flash-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes progress-bar {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  90% { width: 95%; }
+  100% { width: 95%; }
+}
+.animate-progress-bar {
+  animation: progress-bar 8s ease-out forwards;
+}
+
+/* Explicit spinner keyframe — Tailwind v4's animate-spin may rely on a CSS
+   variable that isn't set in all environments. This guarantees the spin. */
+@keyframes spinner-spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spinner-spin 0.75s linear infinite;
+}
+
+/* ── Thin scrollbars on small screens ──────────── */
+@media (max-width: 640px) {
+  ::-webkit-scrollbar {
+    height: 3px;
+    width: 3px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
+}
+
+/* ── Mobile responsive sidebar ──────────────────── */
+@media (max-width: 768px) {
+  :root {
+    --grid-columns: 6;
+    --grid-gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --grid-columns: 4;
+    --grid-gap: 4px;
+  }
+}

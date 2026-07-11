@@ -1,0 +1,18 @@
+{
+  "name": "sq-system",
+  "private": true,
+  "version": "0.0.0",
+  "description": "SquareShare shared packages workspace (@squaresharedev/tokens, grid, schemas, db)",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

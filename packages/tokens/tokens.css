@@ -1,0 +1,157 @@
+/* ============================================================
+   @squaresharedev/tokens — SQUARE SHARE BRAND + SEMANTIC TOKENS
+   Extracted from SQ-store app/globals.css (styles.md design system).
+   Requires Tailwind CSS v4: import this file in your Tailwind entry
+   AFTER `@import "tailwindcss";`:
+
+       @import "tailwindcss";
+       @import "@squaresharedev/tokens/tokens.css";
+
+   NOT included here (deliberately):
+   - Grid layout vars (--grid-gap, --grid-columns, --grid-cell-size)
+     and the .ss-grid rules → they ship with @squaresharedev/grid/styles.css.
+   - App-specific tokens/styles (each app keeps its own palette additions,
+     base resets, keyframes, --spacing-tile-row legacy token, etc.).
+   - The dark-mode variant declaration. If your app drives dark mode off
+     the `.dark` class (SQ-store does), declare the variant once in YOUR
+     entry css:  @custom-variant dark (&:is(.dark *));
+   ============================================================ */
+
+@theme {
+  /* One accent only: electric purple ("acid"). Used as a scalpel. */
+  --color-acid: #a855f7;
+  --color-acid-hover: #9333ea;
+
+  /* Surfaces */
+  --color-surface-dark: #000000;
+  --color-surface-light: #f9f9f9;
+  --color-card-base: #0a0a0c;
+
+  /* Signature glow */
+  --shadow-btn-glow: 0 0 30px rgba(168, 85, 247, 0.3);
+
+  /* Feedback (styles.md §2.1) */
+  --color-success: #15803d; /* green-700: AA contrast for small text on white/neutral-100 */
+  --color-danger-strong: #b91c1c; /* red-700: AA contrast for small text on white/neutral-100 */
+}
+
+/* Font utilities map to app-provided font faces (SQ-store sets these via
+   next/font variables on <html>). `inline` so the utility resolves the
+   runtime variable directly. Apps that don't set a variable simply fall
+   back to the inherited font. */
+@theme inline {
+  --font-display: var(--font-space-grotesk); /* Space Grotesk (headlines) */
+  --font-sans: var(--font-geist); /* Geist (body / UI) */
+  --font-mono: var(--font-jetbrains-mono); /* JetBrains Mono (code / meta) */
+  --font-inter: var(--font-inter); /* Inter (muted captions / labels) */
+  --font-hand: var(--font-shadows-into-light); /* Shadows Into Light (voice) */
+
+  /* shadcn-compatible semantic color tokens (see :root / .dark below). */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Product-UI radius scale (styles.md §3). The auth/marketing surfaces keep
+     their square identity via --radius (0) + rounded-none; product components
+     use these tokens. Primary CTAs are deliberately SHARP (rounded-none) — a
+     brand rule encoded in the shared Button primitive, not per-component. */
+  --radius-sm: 0.375rem; /* buttons, inputs, tiles */
+  --radius-md: 0.5rem; /* cards, popovers */
+  --radius-lg: 0.75rem; /* modals, large panels */
+}
+
+/* Soft shadow ramp (styles.md §6.1) — borders first, shadows sparingly. */
+@theme {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+   SEMANTIC TOKENS (OKLCH) — square corners, brutalist contrast
+   ============================================================ */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0rem; /* square corners are the identity */
+
+  /* Analytics chart series ramp (styles.md §0: token first, then use).
+     Ordered by emphasis: the accent series first, then progressively
+     quieter neutrals. Semantic feedback series map to the feedback tokens
+     so "refund = red, healthy = green" stays consistent product-wide. */
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.556 0 0); /* = muted-foreground tier */
+  --chart-3: oklch(0.708 0 0);
+  --chart-4: oklch(0.85 0 0);
+  --chart-positive: var(--color-success);
+  --chart-negative: var(--destructive);
+
+  /* Giant decorative background arrows (auth + settings). Low enough that
+     text drawn over them keeps full contrast. */
+  --decor-opacity: 0.05;
+}
+
+.dark {
+  /* Square Share brand: pure-black surfaces, electric-purple primary. */
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.18 0 0);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.18 0 0);
+  --popover-foreground: oklch(1 0 0);
+  --primary: #a855f7;
+  --primary-foreground: #000000;
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: #a855f7;
+  --accent-foreground: #000000;
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: #a855f7;
+
+  /* Chart ramp, dark: acid accent first, then quieter light neutrals. */
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.708 0 0);
+  --chart-3: oklch(0.556 0 0);
+  --chart-4: oklch(0.37 0 0);
+  --chart-positive: var(--color-success);
+  --chart-negative: var(--destructive);
+}

@@ -1,0 +1,42 @@
+name: Publish packages
+
+# Publishes every workspace package to GitHub Packages when a version tag
+# (v1.2.3) is pushed. Versions are bumped together across all four packages;
+# tag AFTER bumping. GITHUB_TOKEN is enough — no PAT needed for publishing
+# from the repo that owns the packages.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        # version comes from the root package.json "packageManager" field
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@squaresharedev"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm -r build
+
+      - name: Publish to GitHub Packages
+        run: pnpm -r publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
