@@ -1,0 +1,54 @@
+{
+  "name": "@squaresharedev/consent",
+  "version": "0.1.0",
+  "description": "SquareShare consent engine + banner: framework-agnostic consent state, the .squareshare.eu consent cookie, category gates and change events, plus an optional React banner binding",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./styles.css": "./styles.css"
+  },
+  "files": [
+    "dist",
+    "styles.css"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/squaresharedev/SQ-system.git",
+    "directory": "packages/consent"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "peerDependencies": {
+    "@squaresharedev/tokens": "^0.1.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@squaresharedev/tokens": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.2.4",
+    "typescript": "^5.9.3"
+  }
+}
