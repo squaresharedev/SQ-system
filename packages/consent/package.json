@@ -1,6 +1,6 @@
 {
   "name": "@squaresharedev/consent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SquareShare consent engine + banner: framework-agnostic consent state, the .squareshare.eu consent cookie, category gates and change events, plus an optional React banner binding",
   "license": "UNLICENSED",
   "type": "module",

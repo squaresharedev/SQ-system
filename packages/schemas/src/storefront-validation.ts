@@ -1,25 +1,31 @@
 import { z } from "zod";
 import {
-  BLOCK_SIZES,
-  CARD_SHAPES,
-  CARD_STYLES,
+  BACKGROUND_IMAGE_SCALE_MAX,
+  BACKGROUND_IMAGE_SCALE_MIN,
+  CANVAS_COLUMNS_MAX,
+  CANVAS_COLUMNS_MIN,
+  CANVAS_ROWS_MAX,
+  CANVAS_ROWS_MIN,
+  CORNER_RADIUS_MAX,
   DEFAULT_STOREFRONT_CONFIG,
-  DENSITIES,
   DISPLAY_MODES,
+  GRID_GAP_MAX,
   EMBED_MAX_DOMAINS,
   HEADER_BIO_MAX,
   HEADER_NAME_MAX,
-  PATTERN_PRESETS,
   PRICE_DISPLAYS,
   PRICE_TAG_POSITIONS,
   PRICE_TAG_STYLES,
+  SHAPE_BORDER_WIDTH_MAX,
   SHAPE_KINDS,
   STOREFRONT_FONTS,
-  STOREFRONT_RADII,
   TEXT_ALIGNS,
   TEXT_MAX_LENGTH,
   TEXT_VARIANTS,
+  TITLE_DISPLAYS,
+  TITLE_STYLES,
   blockKey,
+  placementsOverlap,
   type StorefrontBackground,
   type StorefrontConfig,
 } from "./storefront.js";
@@ -30,13 +36,17 @@ import {
 // rejects unknown keys so nothing smuggles extra data into the jsonb.
 //
 // PACKAGE NOTE: this file is SQ-store's lib/validation/storefront.ts, exported
-// as-is with ONE deviation — the app-side LEGACY_BACKGROUND_GRADIENTS import
-// (components/storefront/background-presets.ts, a presentation file that stays
-// in the app) became the optional `legacyGradients` parameter of
-// parseStoredStorefrontConfig. Pass the app's map to keep v1 string-background
-// upgrades byte-identical; omitting it only affects pre-structured-background
-// configs that stored a named preset key (they fall back to the default
-// background instead of the legacy gradient).
+// as-is with TWO deviations:
+// - OBJECT_KEY_PATTERN (the app imports it from lib/validation/product.ts) is
+//   inlined + exported here, byte-identical, so the package stays free of app
+//   imports. The app should adopt this export when it consumes the package.
+// - The app-side LEGACY_BACKGROUND_GRADIENTS import (components/storefront/
+//   background-presets.ts, a presentation file that stays in the app) became
+//   the optional `legacyGradients` parameter of parseStoredStorefrontConfig.
+//   Pass the app's map to keep v1 string-background upgrades byte-identical;
+//   omitting it only affects pre-structured-background configs that stored a
+//   named preset key (they fall back to the default background instead of the
+//   legacy gradient).
 
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
@@ -44,6 +54,13 @@ const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 export function isStrictHexColor(value: string): boolean {
   return HEX_COLOR_PATTERN.test(value);
 }
+
+/** R2 object keys are minted server-side as
+ *  `{prefix}/{ownerId}/{uuid}-{sanitizedName}` (SQ-store lib/r2.ts), so a
+ *  stored key must match that shape exactly. Shared by every schema that
+ *  stores object keys (product media, storefront background images). */
+export const OBJECT_KEY_PATTERN =
+  /^(images|files)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[A-Za-z0-9._-]{1,200}$/;
 
 /** A storefront's public id (also the future embed/attribution key). Guards
  *  URL params + action inputs so a garbage id 404s instead of erroring. */
@@ -69,13 +86,17 @@ const TEXT_ERROR = { error: "Text contains unsupported characters." };
 const MULTILINE_TEXT_PATTERN = /^(?:[^\u0000-\u001f\u007f]|\n)*$/;
 const SINGLE_LINE_TEXT_PATTERN = /^[^\u0000-\u001f\u007f]*$/;
 
-/** Sanity cap on grid size; the designer UI stays comfortably under it. */
-export const MAX_BLOCKS = 60;
+/** Sanity cap on grid size. Sized above the biggest canvas (12 x 24 cells)
+ *  can sensibly hold, so it bounds the stored jsonb without ever being the
+ *  thing a seller runs into. */
+export const MAX_BLOCKS = 120;
 
 // Background is a closed, structured shape: a solid hex, a custom gradient
-// (hex + hex + integer angle), or a pattern preset over a base hex. The stored
-// value is only ever code-defined styles fed by regex-gated colors / an
-// allowlisted key — never a raw CSS/gradient string.
+// (hex + hex + integer angle), or an uploaded image. The stored value is only
+// ever code-defined styles fed by regex-gated colors / an allowlisted key,
+// never a raw CSS/gradient string. The image variant stores an R2 object KEY
+// (shape-checked here; ownership + size/type of NEW keys are re-checked in
+// saveStorefront) plus position/zoom.
 const backgroundSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("solid"), color: hexColorSchema }),
   z.strictObject({
@@ -85,28 +106,122 @@ const backgroundSchema = z.discriminatedUnion("kind", [
     angle: z.number().int().min(0).max(360),
   }),
   z.strictObject({
-    kind: z.literal("pattern"),
-    preset: z.enum(PATTERN_PRESETS),
-    color: hexColorSchema,
+    kind: z.literal("image"),
+    key: z
+      .string()
+      .max(600)
+      .regex(OBJECT_KEY_PATTERN)
+      .refine((key) => key.startsWith("images/"), {
+        error: "Background images must be image uploads.",
+      }),
+    x: z.number().int().min(0).max(100),
+    y: z.number().int().min(0).max(100),
+    scale: z
+      .number()
+      .int()
+      .min(BACKGROUND_IMAGE_SCALE_MIN)
+      .max(BACKGROUND_IMAGE_SCALE_MAX),
   }),
 ]);
 
-const themeSchema = z.strictObject({
+const themeObjectSchema = z.strictObject({
   background: backgroundSchema,
   accent: hexColorSchema,
   font: z.enum(STOREFRONT_FONTS),
-  radius: z.enum(STOREFRONT_RADII),
-  cardStyle: z.enum(CARD_STYLES),
+  columns: z.number().int().min(CANVAS_COLUMNS_MIN).max(CANVAS_COLUMNS_MAX),
+  rows: z.number().int().min(CANVAS_ROWS_MIN).max(CANVAS_ROWS_MAX),
+  cornerRadius: z.number().int().min(0).max(CORNER_RADIUS_MAX),
+  titleStyle: z.enum(TITLE_STYLES),
+  titleDisplay: z.enum(TITLE_DISPLAYS),
   priceDisplay: z.enum(PRICE_DISPLAYS),
-  cardShape: z.enum(CARD_SHAPES),
-  priceTagPosition: z.enum(PRICE_TAG_POSITIONS),
+  // Legacy configs stored "onImage"/"corner" before the 7-spot picker existed;
+  // map them to the equivalent explicit spots so old storefronts still parse.
+  priceTagPosition: z.preprocess(
+    (value) =>
+      value === "onImage"
+        ? "bottom-left"
+        : value === "corner"
+          ? "top-right"
+          : value,
+    z.enum(PRICE_TAG_POSITIONS),
+  ),
   priceTagStyle: z.enum(PRICE_TAG_STYLES),
   showTitle: z.boolean(),
   displayMode: z.enum(DISPLAY_MODES),
-  density: z.enum(DENSITIES),
+  gridGap: z.number().int().min(0).max(GRID_GAP_MAX),
   soldOutBadge: z.boolean(),
   hideSoldOut: z.boolean(),
 });
+
+/** Legacy `radius` enum -> px, matching the old rounded-sm/md/lg classes. */
+const LEGACY_RADIUS_PX: Record<string, number> = { none: 0, sm: 4, md: 6, lg: 8 };
+
+/** Legacy `density` enum -> gap px, matching the old ss-gap-* classes. */
+const LEGACY_DENSITY_PX: Record<string, number> = {
+  compact: 4,
+  comfy: 8,
+  spacious: 16,
+};
+
+// Legacy-theme migrations, applied before the strict parse:
+// - priceDisplay "never" predates the position picker's Hidden mode; fold it
+//   into priceTagPosition "hidden" so hiding the price has ONE representation.
+// - cardStyle (standard/overlay/minimal) conflated title placement with hover
+//   visibility; split it into titleStyle + titleDisplay and drop the key
+//   (strictObject would reject it).
+// - radius (none/sm/md/lg) + cardShape (square/rounded/circle) merged into
+//   the numeric cornerRadius: circle -> full, square -> sharp, rounded -> the
+//   radius enum's px value.
+// - pattern backgrounds were removed; they fall back to their base color.
+// - density (compact/comfy/spacious) became the numeric gridGap (gap px).
+const themeSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null) return value;
+  const theme = { ...(value as Record<string, unknown>) };
+  const background = theme.background as
+    | { kind?: unknown; color?: unknown }
+    | null
+    | undefined;
+  if (
+    typeof background === "object" &&
+    background !== null &&
+    background.kind === "pattern"
+  ) {
+    theme.background = {
+      kind: "solid",
+      color: typeof background.color === "string" ? background.color : "#ffffff",
+    };
+  }
+  if (theme.priceDisplay === "never") {
+    theme.priceDisplay = "always";
+    theme.priceTagPosition = "hidden";
+  }
+  if ("cardStyle" in theme) {
+    if (theme.titleStyle === undefined) {
+      theme.titleStyle = theme.cardStyle === "standard" ? "bar" : "overlay";
+      theme.titleDisplay = theme.cardStyle === "minimal" ? "hover" : "always";
+    }
+    delete theme.cardStyle;
+  }
+  if ("radius" in theme || "cardShape" in theme) {
+    if (theme.cornerRadius === undefined) {
+      theme.cornerRadius =
+        theme.cardShape === "circle"
+          ? CORNER_RADIUS_MAX
+          : theme.cardShape === "square"
+            ? 0
+            : (LEGACY_RADIUS_PX[String(theme.radius)] ?? 0);
+    }
+    delete theme.radius;
+    delete theme.cardShape;
+  }
+  if ("density" in theme) {
+    if (theme.gridGap === undefined) {
+      theme.gridGap = LEGACY_DENSITY_PX[String(theme.density)] ?? 8;
+    }
+    delete theme.density;
+  }
+  return theme;
+}, themeObjectSchema);
 
 // The optional masthead above the grid: show toggle + capped plain text.
 const headerSchema = z.strictObject({
@@ -140,14 +255,20 @@ export const embedSettingsSchema = z.strictObject({
     }),
 });
 
-const sizeSchema = z.enum(BLOCK_SIZES);
-const orderSchema = z.number().int().min(0).max(9999);
+// Free placement: every block carries its own cell coordinates and span. The
+// per-field caps here are absolute (canvas maximums); the config-level refine
+// below enforces the tighter, per-storefront bounds and non-overlap.
+const placementFields = {
+  x: z.number().int().min(0).max(CANVAS_COLUMNS_MAX - 1),
+  y: z.number().int().min(0).max(CANVAS_ROWS_MAX - 1),
+  w: z.number().int().min(1).max(CANVAS_COLUMNS_MAX),
+  h: z.number().int().min(1).max(CANVAS_ROWS_MAX),
+};
 
 const productBlockSchema = z.strictObject({
   type: z.literal("product"),
   productId: z.uuid(),
-  size: sizeSchema,
-  order: orderSchema,
+  ...placementFields,
   // Seller-controlled sold-out mark — optional so older blocks still parse.
   soldOut: z.boolean().optional(),
 });
@@ -165,8 +286,7 @@ const textBlockSchema = z.strictObject({
     .regex(MULTILINE_TEXT_PATTERN, TEXT_ERROR),
   variant: z.enum(TEXT_VARIANTS),
   align: z.enum(TEXT_ALIGNS),
-  size: sizeSchema,
-  order: orderSchema,
+  ...placementFields,
   // Inline formatting — optional so v1 blocks (without them) still parse.
   bold: z.boolean().optional(),
   italic: z.boolean().optional(),
@@ -179,8 +299,11 @@ const shapeBlockSchema = z.strictObject({
   id: z.uuid(),
   kind: z.enum(SHAPE_KINDS),
   color: hexColorSchema,
-  size: sizeSchema,
-  order: orderSchema,
+  ...placementFields,
+  // Styling — optional so blocks saved before it existed still parse.
+  borderWidth: z.number().int().min(0).max(SHAPE_BORDER_WIDTH_MAX).optional(),
+  borderColor: hexColorSchema.optional(),
+  opacity: z.number().int().min(0).max(100).optional(),
 });
 
 const blockSchema = z.discriminatedUnion("type", [
@@ -189,19 +312,167 @@ const blockSchema = z.discriminatedUnion("type", [
   shapeBlockSchema,
 ]);
 
-export const storefrontConfigSchema = z.strictObject({
-  theme: themeSchema,
-  blocks: z
-    .array(blockSchema)
-    .max(MAX_BLOCKS)
-    .refine(
-      (blocks) => new Set(blocks.map(blockKey)).size === blocks.length,
-      { error: "Grid blocks must be unique." },
-    ),
-  // Optional so configs saved before these features still parse directly.
-  header: headerSchema.optional(),
-  embed: embedSettingsSchema.optional(),
-}) satisfies z.ZodType<StorefrontConfig>;
+const configObjectSchema = z
+  .strictObject({
+    theme: themeSchema,
+    blocks: z
+      .array(blockSchema)
+      .max(MAX_BLOCKS)
+      .refine(
+        (blocks) => new Set(blocks.map(blockKey)).size === blocks.length,
+        { error: "Grid blocks must be unique." },
+      ),
+    // Optional so configs saved before these features still parse directly.
+    header: headerSchema.optional(),
+    embed: embedSettingsSchema.optional(),
+  })
+  // The canvas invariants, checked here because they span theme + blocks:
+  // every block sits inside the board, and no two cover the same cell. These
+  // are REJECTED rather than repaired — silently moving a block would scramble
+  // a layout the seller can see.
+  .superRefine((config, ctx) => {
+    const { columns, rows } = config.theme;
+    config.blocks.forEach((block, index) => {
+      if (block.x + block.w > columns || block.y + block.h > rows) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["blocks", index],
+          message: "A block sits outside the canvas.",
+        });
+      }
+      for (let other = index + 1; other < config.blocks.length; other += 1) {
+        if (placementsOverlap(block, config.blocks[other])) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["blocks", other],
+            message: "Blocks cannot overlap.",
+          });
+          return;
+        }
+      }
+    });
+  });
+
+/**
+ * Convert a pre-free-placement config: blocks used to carry `order` + a
+ * `"<cols>x<rows>"` size string and were positioned by CSS auto-flow. Running
+ * that same first-fit packing ONCE reproduces the exact layout the seller last
+ * saw, cell for cell, so the upgrade is invisible to them.
+ */
+function migrateLegacyBlocks(
+  raw: unknown[],
+  columns: number,
+): { blocks: Record<string, unknown>[]; rows: number } {
+  const occupied = new Set<string>();
+  const taken = (x: number, y: number) => occupied.has(`${x},${y}`);
+  const fits = (x: number, y: number, w: number, h: number) => {
+    for (let row = y; row < y + h; row += 1) {
+      for (let col = x; col < x + w; col += 1) if (taken(col, row)) return false;
+    }
+    return true;
+  };
+
+  // The auto-flow cursor: placement never searches backwards past it, which is
+  // what CSS's sparse row flow does.
+  let cursorRow = 0;
+  let cursorCol = 0;
+  let usedRows = 0;
+
+  const ordered = [...raw]
+    .filter((block): block is Record<string, unknown> =>
+      typeof block === "object" && block !== null,
+    )
+    .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+
+  const blocks = ordered.map((block) => {
+    const [rawW, rawH] = String(block.size ?? "1x1").split("x").map(Number);
+    const w = Math.min(Number.isFinite(rawW) ? Math.max(1, rawW) : 1, columns);
+    const h = Number.isFinite(rawH) ? Math.max(1, rawH) : 1;
+
+    let row = cursorRow;
+    let col = cursorCol;
+    for (;;) {
+      if (col + w > columns) {
+        row += 1;
+        col = 0;
+        continue;
+      }
+      if (fits(col, row, w, h)) break;
+      col += 1;
+    }
+    for (let r = row; r < row + h; r += 1) {
+      for (let c = col; c < col + w; c += 1) occupied.add(`${c},${r}`);
+    }
+    usedRows = Math.max(usedRows, row + h);
+    cursorRow = row;
+    cursorCol = col + w;
+    if (cursorCol >= columns) {
+      cursorRow = row + 1;
+      cursorCol = 0;
+    }
+
+    const rest = { ...block };
+    delete rest.size;
+    delete rest.order;
+    return { ...rest, x: col, y: row, w, h };
+  });
+
+  return { blocks, rows: usedRows };
+}
+
+/**
+ * Config-level migrations, applied before the strict parse:
+ * - legacy `spacer` shape blocks (invisible whitespace) are dropped;
+ * - legacy auto-flow blocks (`order` + `size`) gain explicit coordinates,
+ *   and the canvas gains the row count that layout needed.
+ */
+export const storefrontConfigSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null) return value;
+  const config = { ...(value as Record<string, unknown>) };
+  if (!Array.isArray(config.blocks)) return config;
+
+  const live = config.blocks.filter(
+    (block) =>
+      !(
+        typeof block === "object" &&
+        block !== null &&
+        (block as Record<string, unknown>).type === "shape" &&
+        (block as Record<string, unknown>).kind === "spacer"
+      ),
+  );
+
+  // Already placed? Nothing to do beyond the spacer drop.
+  const needsPlacement = live.some(
+    (block) =>
+      typeof block === "object" &&
+      block !== null &&
+      (block as Record<string, unknown>).x === undefined,
+  );
+  if (!needsPlacement) return { ...config, blocks: live };
+
+  const theme =
+    typeof config.theme === "object" && config.theme !== null
+      ? (config.theme as Record<string, unknown>)
+      : {};
+  // 6 is what the designer laid out with before the canvas was configurable.
+  const columns = Number(theme.columns ?? 6);
+  const { blocks, rows } = migrateLegacyBlocks(live, columns);
+
+  return {
+    ...config,
+    theme: {
+      ...theme,
+      columns,
+      // The board must be at least as tall as the packing needed, or blocks
+      // would land outside a canvas that only ever had a default row count.
+      rows: Math.min(
+        CANVAS_ROWS_MAX,
+        Math.max(Number(theme.rows ?? 0) || 0, rows, CANVAS_ROWS_MIN),
+      ),
+    },
+    blocks,
+  };
+}, configObjectSchema);
 
 /** The shape of the app-side legacy gradient preset map (SQ-store's
  *  LEGACY_BACKGROUND_GRADIENTS in background-presets.ts). Keys are the v1
@@ -232,8 +503,9 @@ function upgradeBackground(
 
 /**
  * Parse a stored config, upgrading older saved shapes instead of discarding
- * them: v1 product blocks had no `type`, v1 themes lack cardStyle/priceDisplay,
- * and v1 backgrounds were a bare string. Returns null when unrecognizable.
+ * them: v1 product blocks had no `type`, older themes lack newer fields (the
+ * defaults fill them; themeSchema's preprocess migrates renamed ones), and v1
+ * backgrounds were a bare string. Returns null when unrecognizable.
  *
  * `legacyGradients`: pass the app's LEGACY_BACKGROUND_GRADIENTS map so v1
  * named-preset backgrounds upgrade to their gradients (see LegacyGradientPresets).

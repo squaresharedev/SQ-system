@@ -1,6 +1,6 @@
 {
   "name": "@squaresharedev/tokens",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SquareShare brand + semantic design tokens (Tailwind v4 @theme CSS) and shared control-style class constants",
   "license": "UNLICENSED",
   "type": "module",

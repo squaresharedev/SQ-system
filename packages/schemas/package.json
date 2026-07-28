@@ -1,6 +1,6 @@
 {
   "name": "@squaresharedev/schemas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SquareShare shared domain types + Zod schemas: StorefrontConfig (SQ-store) and Artifact/Collection (SQ-app)",
   "license": "UNLICENSED",
   "type": "module",
@@ -8,6 +8,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./storefront": {
+      "types": "./dist/storefront.d.ts",
+      "import": "./dist/storefront.js"
+    },
+    "./storefront-validation": {
+      "types": "./dist/storefront-validation.d.ts",
+      "import": "./dist/storefront-validation.js"
+    },
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    },
+    "./agent-meta": {
+      "types": "./dist/agent-meta.d.ts",
+      "import": "./dist/agent-meta.js"
     }
   },
   "files": [
