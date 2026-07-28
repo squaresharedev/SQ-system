@@ -122,12 +122,25 @@ positions, 22 `SHAPE_KINDS` with `borderWidth`/`borderColor`/`opacity`, and fina
 entirely; non-overlap and in-bounds are schema-enforced via `placementsOverlap` and a
 config-level `superRefine`).
 
-Resolution (schemas v0.2.0): `packages/schemas/src/storefront.ts` and
+Resolution (schemas v0.2.0, published): `packages/schemas/src/storefront.ts` and
 `storefront-validation.ts` are re-lifted from the SQ-store canvas-model working tree,
 byte-compatible, with two documented package deviations (`OBJECT_KEY_PATTERN` inlined;
 legacy gradient presets as the optional `legacyGradients` parameter of
-`parseStoredStorefrontConfig`). SQ-store consumes the package through thin re-export shims
-at its old module paths, so the app-side copies are now single-line-of-truth imports.
+`parseStoredStorefrontConfig`).
+
+SQ-store adoption is STAGED but not switched: the repo now carries the `.npmrc` scope
+mapping and a guarded `GH_PACKAGES_TOKEN` auth step in `deploy.yml`, but installing the
+package needs a CLASSIC PAT with `read:packages` (the local fine-grained `github_pat_`
+token 403s against GitHub Packages; see the SQ-system README). Remaining steps, in order,
+once that PAT exists locally and as a Store repo secret:
+1. `pnpm add @squaresharedev/schemas@^0.2.0` in SQ-store.
+2. Replace `src/types/storefront.ts` with `export * from "@squaresharedev/schemas/storefront";`
+   (the subpath export is zod-free, safe for client bundles).
+3. Replace `src/lib/validation/storefront.ts` with a shim that re-exports
+   `@squaresharedev/schemas/storefront-validation` and locally overrides
+   `parseStoredStorefrontConfig(raw)` to bake in the app's `LEGACY_BACKGROUND_GRADIENTS`.
+4. `pnpm typecheck` must pass with zero app-code edits beyond the two shims.
+Until that lands, the app files and the package must be kept mirrored in lockstep.
 
 Still stale, deliberately: `@squaresharedev/grid`'s FLOW mode implements the old auto-flow
 `GRID_SIZES` grid, which the canvas designer no longer uses. The grid package is UI, not a
@@ -286,9 +299,9 @@ launch. Violations are review blockers, not style nits.
    server action (or route) with a Zod-validated input that a machine could call, then the
    UI calls it. Never validate only in React state.
 5. **Schema changes land in `@squaresharedev/schemas` first**, then the app consumes the
-   package. SQ-store's `@/types/storefront` and `@/lib/validation/storefront` are
-   re-export shims over the package as of schemas v0.2.0; edit the package, never the
-   shims.
+   package. Until the shim swap in 3.0 lands, any edit to SQ-store's
+   `src/types/storefront.ts` or `src/lib/validation/storefront.ts` MUST be mirrored into
+   the package in the same working session; after the swap, edit the package only.
 6. **Migrations over breaks:** follow the `parseStoredStorefrontConfig` pattern (upgrade
    old shapes on parse, optional fields for new features) so stored configs and future
    agent-written configs never become unreadable.
