@@ -14,6 +14,15 @@ import type { CookieOptions } from "@supabase/ssr";
  * client (see ./server.ts). The next agent wiring auth logic should follow that
  * pattern (e.g. a `/auth/callback` route handler + server actions), not try to
  * read the session from `document.cookie`.
+ *
+ * INVARIANT — a cookie with a Domain attribute is ALWAYS Secure. A parent-domain
+ * cookie is cross-subdomain by definition, so dropping Secure would put the
+ * session token on every plaintext http:// request to any host under the domain.
+ * `secure` is therefore driven by the Domain attribute as well as NODE_ENV: a
+ * preview deployment that sets NEXT_PUBLIC_COOKIE_DOMAIN without an exact
+ * `production` NODE_ENV cannot silently ship a non-Secure session cookie.
+ * Host-only dev (no override, not prod) is the ONLY case that gets Secure=false,
+ * because http://localhost needs it.
  */
 
 const isProd = process.env.NODE_ENV === "production";
@@ -28,6 +37,6 @@ export const AUTH_COOKIE_OPTIONS: CookieOptions = {
   domain: cookieDomain,
   path: "/",
   sameSite: "lax",
-  secure: isProd,
+  secure: isProd || Boolean(cookieDomain),
   httpOnly: true,
 };

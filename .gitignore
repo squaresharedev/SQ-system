@@ -2,3 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+
+# Build artifacts. `pnpm pack` output is a publish byproduct — it is never
+# reviewed, never referenced, and must not be committed alongside source.
+*.tgz

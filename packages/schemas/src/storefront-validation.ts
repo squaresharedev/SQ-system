@@ -29,6 +29,12 @@ import {
   type StorefrontBackground,
   type StorefrontConfig,
 } from "./storefront.js";
+import {
+  MULTILINE_TEXT_PATTERN,
+  SINGLE_LINE_TEXT_PATTERN,
+  TEXT_ERROR,
+} from "./text.js";
+import { imageObjectKeySchema } from "./object-key.js";
 
 // The security contract for storefront configs. Parsed server-side on EVERY
 // save (client checks are UX only). Hard rules: strict hex colors, enums only
@@ -37,9 +43,11 @@ import {
 //
 // PACKAGE NOTE: this file is SQ-store's lib/validation/storefront.ts, exported
 // as-is with TWO deviations:
-// - OBJECT_KEY_PATTERN (the app imports it from lib/validation/product.ts) is
-//   inlined + exported here, byte-identical, so the package stays free of app
-//   imports. The app should adopt this export when it consumes the package.
+// - OBJECT_KEY_PATTERN (the app imports it from lib/validation/product.ts) now
+//   lives in ./object-key.ts, byte-identical, so the package stays free of app
+//   imports AND every contract that stores an object key shares one definition.
+//   It is re-exported below, so this module's import path is unchanged. The app
+//   should adopt this export when it consumes the package.
 // - The app-side LEGACY_BACKGROUND_GRADIENTS import (components/storefront/
 //   background-presets.ts, a presentation file that stays in the app) became
 //   the optional `legacyGradients` parameter of parseStoredStorefrontConfig.
@@ -55,12 +63,19 @@ export function isStrictHexColor(value: string): boolean {
   return HEX_COLOR_PATTERN.test(value);
 }
 
-/** R2 object keys are minted server-side as
- *  `{prefix}/{ownerId}/{uuid}-{sanitizedName}` (SQ-store lib/r2.ts), so a
- *  stored key must match that shape exactly. Shared by every schema that
- *  stores object keys (product media, storefront background images). */
-export const OBJECT_KEY_PATTERN =
-  /^(images|files)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[A-Za-z0-9._-]{1,200}$/;
+// R2 object keys are minted server-side as
+// `{prefix}/{ownerId}/{uuid}-{sanitizedName}` (SQ-store lib/r2.ts). The
+// contract, its schemas, and the ownership helpers live in ./object-key.ts;
+// they are re-exported here so existing import paths are unchanged.
+export {
+  OBJECT_KEY_MAX,
+  OBJECT_KEY_PATTERN,
+  OBJECT_KEY_PREFIXES,
+  imageObjectKeySchema,
+  isObjectKeyOwnedBy,
+  objectKeyOwner,
+  objectKeySchema,
+} from "./object-key.js";
 
 /** A storefront's public id (also the future embed/attribution key). Guards
  *  URL params + action inputs so a garbage id 404s instead of erroring. */
@@ -79,12 +94,9 @@ const hexColorSchema = z.string().regex(HEX_COLOR_PATTERN, {
   error: "Colors must be 6-digit hex, like #a855f7.",
 });
 
-// Plain-text gates shared by every free-text config field (text blocks, the
-// store header). Control characters are rejected; the multiline variant only
-// re-admits newline. Text is ALWAYS rendered as React text nodes, never markup.
-const TEXT_ERROR = { error: "Text contains unsupported characters." };
-const MULTILINE_TEXT_PATTERN = /^(?:[^\u0000-\u001f\u007f]|\n)*$/;
-const SINGLE_LINE_TEXT_PATTERN = /^[^\u0000-\u001f\u007f]*$/;
+// Plain-text gates (TEXT_ERROR / MULTILINE_TEXT_PATTERN /
+// SINGLE_LINE_TEXT_PATTERN) come from ./text.ts — one definition, shared with
+// the app-domain contracts, so the two can never drift apart.
 
 /** Sanity cap on grid size. Sized above the biggest canvas (12 x 24 cells)
  *  can sensibly hold, so it bounds the stored jsonb without ever being the
@@ -107,13 +119,7 @@ const backgroundSchema = z.discriminatedUnion("kind", [
   }),
   z.strictObject({
     kind: z.literal("image"),
-    key: z
-      .string()
-      .max(600)
-      .regex(OBJECT_KEY_PATTERN)
-      .refine((key) => key.startsWith("images/"), {
-        error: "Background images must be image uploads.",
-      }),
+    key: imageObjectKeySchema,
     x: z.number().int().min(0).max(100),
     y: z.number().int().min(0).max(100),
     scale: z

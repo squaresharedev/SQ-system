@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  MULTILINE_TEXT_PATTERN,
+  SINGLE_LINE_TEXT_PATTERN,
+  TEXT_ERROR,
+} from "./text.js";
+import { imageObjectKeySchema } from "./object-key.js";
 
 // The SQ-app domain contract: Artifacts placed on the positioned grid, grouped
 // into Collections. Mirrors the DB row shape minus server-only fields
@@ -11,11 +17,9 @@ import { z } from "zod";
 // col/row/colSpan/rowSpan) map 1:1 onto these — keep the mapping at the API
 // client layer, exactly like the old app's dtoToGridItem.
 
-// Plain-text gates (same rules as the storefront config fields): control
-// characters are rejected; the multiline variant only re-admits newline.
-const TEXT_ERROR = { error: "Text contains unsupported characters." };
-const MULTILINE_TEXT_PATTERN = /^(?:[^\u0000-\u001f\u007f]|\n)*$/;
-const SINGLE_LINE_TEXT_PATTERN = /^[^\u0000-\u001f\u007f]*$/;
+// Plain-text gates (TEXT_ERROR / MULTILINE_TEXT_PATTERN /
+// SINGLE_LINE_TEXT_PATTERN) come from ./text.ts — the same definitions the
+// storefront contract uses.
 
 /** Row ids are uuids everywhere; guards URL params + action inputs. */
 export const artifactIdSchema = z.uuid();
@@ -25,8 +29,6 @@ export const collectionIdSchema = z.uuid();
 
 export const ARTIFACT_TITLE_MAX = 120;
 export const ARTIFACT_DESCRIPTION_MAX = 1000;
-/** R2 object key (not a URL — the app builds delivery URLs from it). */
-export const IMAGE_KEY_MAX = 512;
 
 /** 1-based grid coordinates. The column cap is the CSS var at render time
  *  (--grid-columns, responsive); the wire cap is only a sanity bound. */
@@ -65,11 +67,11 @@ export const artifactSchema = z.strictObject({
       error: `Descriptions are ${ARTIFACT_DESCRIPTION_MAX} characters or fewer.`,
     })
     .regex(MULTILINE_TEXT_PATTERN, TEXT_ERROR),
-  imageKey: z
-    .string()
-    .min(1)
-    .max(IMAGE_KEY_MAX)
-    .regex(SINGLE_LINE_TEXT_PATTERN, TEXT_ERROR),
+  // A MINTED R2 key (`images/{ownerId}/{uuid}-{name}`), never a URL and never
+  // a client-chosen string. SHAPE ONLY: a well-formed key naming another
+  // creator's id passes this schema, so the caller MUST also check ownership
+  // with `isObjectKeyOwnedBy(key, session.user.id)` before trusting it.
+  imageKey: imageObjectKeySchema,
   gridX: gridCoordSchema,
   gridY: gridCoordSchema,
   spanW: gridSpanSchema,

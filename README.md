@@ -11,6 +11,7 @@ Worker).
 | `@squaresharedev/grid` | The bento grid, two modes: **flow** (SQ-store's auto-placed grid, lifted verbatim) and **positioned** (explicit `gridX/gridY/spanW/spanH` coordinates, replicating the old SQ-app grid canvas). Ships `styles.css`. |
 | `@squaresharedev/schemas` | Domain types + Zod v4 schemas: `StorefrontConfig` (+ its validation mirror) and the new `Artifact` / `Collection` app domain. |
 | `@squaresharedev/db` | Supabase client factories on `@supabase/ssr` + `AUTH_COOKIE_OPTIONS` (the `.squareshare.eu` session cookie contract). |
+| `@squaresharedev/consent` | Framework-agnostic consent engine + the `sq_consent` cookie, category gates and change events, plus an optional React banner binding. Ships `styles.css`. |
 
 `store-export/` and `ui-export/` are the read-only source inputs the packages
 were lifted from — do not edit or import them.
@@ -29,7 +30,7 @@ instead of the env reference — never commit a token):
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
-Then `pnpm add @squaresharedev/tokens @squaresharedev/grid @squaresharedev/schemas @squaresharedev/db`.
+Then `pnpm add @squaresharedev/tokens @squaresharedev/grid @squaresharedev/schemas @squaresharedev/db @squaresharedev/consent`.
 
 > **Scope note:** GitHub Packages only accepts a scoped package when the scope
 > matches the owner of the repo it's published from — this repo lives under
@@ -41,6 +42,8 @@ Install alongside, per package used: `@squaresharedev/grid` → `react`,
 `react-dom`, `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`,
 `lucide-react`. `@squaresharedev/schemas` → `zod@^4`. `@squaresharedev/db` →
 `@supabase/ssr` (plus `next` when using the `/next` entry).
+`@squaresharedev/consent` → `react` and `@squaresharedev/tokens`, both optional
+(needed only for the React banner binding and its styling).
 
 ## Usage
 
@@ -124,6 +127,25 @@ parseStoredStorefrontConfig(raw, LEGACY_BACKGROUND_GRADIENTS);
 import { artifactSchema, collectionSchema, artifactPlacementBatchSchema } from "@squaresharedev/schemas";
 ```
 
+**Asset keys.** Every field that stores an R2 object key (`artifact.imageKey`,
+`theme.background.image.key`) is gated by one shared contract in
+`@squaresharedev/schemas/object-key`: a key must match the shape the presign
+flow mints, `{images|files}/{ownerId}/{uuid}-{name}`. That regex proves *shape*,
+never *identity* — a well-formed key naming another creator's id parses fine.
+Ownership is the caller's job, and the package ships the primitive for it:
+
+```ts
+import { artifactSchema } from "@squaresharedev/schemas";
+import { isObjectKeyOwnedBy } from "@squaresharedev/schemas/object-key";
+
+const parsed = artifactSchema.safeParse(await c.req.json());
+if (!parsed.success) return c.json({ error: "invalid" }, 400);
+// REQUIRED alongside the parse — the schema cannot do this for you:
+if (!isObjectKeyOwnedBy(parsed.data.imageKey, session.user.id)) {
+  return c.json({ error: "invalid" }, 400);
+}
+```
+
 ### @squaresharedev/db
 
 ```ts
@@ -150,16 +172,28 @@ dev, HttpOnly). It reads `process.env` at module load — fine in Next, Node,
 and Workers with `nodejs_compat`; don't import the root entry in browser
 bundles (use `/browser`). No service-role helper ships here by design.
 
+Invariant worth knowing before you touch it: **a cookie carrying a `Domain` is
+always `Secure`.** `secure` is driven by the `Domain` attribute as well as
+`NODE_ENV`, so setting `NEXT_PUBLIC_COOKIE_DOMAIN` on a preview deploy can't
+silently ship a cross-subdomain session cookie in the clear. Host-only local dev
+is the only case that gets `Secure=false`.
+
 ## Development
 
 ```sh
 pnpm install
 pnpm build        # tsc for all packages → dist/ (ESM + .d.ts)
+pnpm typecheck    # tsc --noEmit for all packages
+pnpm test         # vitest — the security contracts (run before publishing)
 ```
+
+Tests live in `packages/<pkg>/test/`, deliberately outside each package's
+`src/`: every tsconfig uses `include: ["src"]`, so tests can never be emitted
+into `dist/` and published.
 
 ## Publishing
 
-1. Bump the version in all four `packages/*/package.json` (kept in lockstep).
+1. Bump the version in all five `packages/*/package.json` (kept in lockstep).
 2. Commit, tag `vX.Y.Z`, push the tag.
 3. `.github/workflows/publish.yml` builds everything and runs
    `pnpm -r publish` against GitHub Packages using the workflow's

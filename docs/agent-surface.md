@@ -237,6 +237,16 @@ as text but semantically references the seller's own sites; a future pre-registr
 would make it enumerable. `background.image.key` and product asset keys are only valid as
 outputs of the presign flow; the MCP must never accept arbitrary keys it did not mint.
 
+> **Closed in 0.3.0 (asset keys).** The key contract now lives in one place —
+> `@squaresharedev/schemas/object-key` — and every field that stores a key
+> (`artifact.imageKey`, `theme.background.image.key`) is gated by it, so an
+> unminted key is rejected at the validation boundary and the pattern is
+> published through `describeContract` for agents to read. `artifact.imageKey`
+> previously accepted any control-character-free string, including absolute URLs
+> and `../` traversal. **The regex proves shape, not ownership**: a well-formed
+> key naming another creator's id still parses, so every write path must also
+> call `isObjectKeyOwnedBy(key, session.user.id)`. `embed.domains` remains open.
+
 **Debt D: the drift itself (3.0).** Until SQ-store consumes `@squaresharedev/schemas`,
 any MCP validation layer would validate against the wrong contract. This is the retrofit
 debt that blocks all others.

@@ -1,6 +1,6 @@
 {
   "name": "@squaresharedev/db",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SquareShare Supabase client factories (@supabase/ssr) + the shared session cookie options",
   "license": "UNLICENSED",
   "type": "module",
