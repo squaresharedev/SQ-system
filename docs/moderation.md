@@ -314,16 +314,23 @@ Two, applied to production on 2026-09-18 via the Supabase MCP, in this order
    `moderation_checked_at`, `moderation_decisions.automated`,
    `moderation_checks`, the `moderation_gate` and
    `moderation_remember_approval` triggers, the checker's functions and
-   `guard_seller_text`. **Not in production as of 2026-10-10**, and applied
-   AFTER its code deploys (see The automatic check).
+   `guard_seller_text`. **In production since 2026-10-11**, applied AFTER its
+   code deployed (see The automatic check), and verified from the database:
+   objects present, no client role can execute the functions or touch
+   `moderation_checks`, and a seller's edit lands in `pending` while a
+   self-approval is refused.
 6. `SQ-store/supabase/migrations/20261013_marketplace_moderation.sql`: the
    marketplace's half. `artifacts_public_read` requires `ok`;
    `sync_profile_directory` asks the approved list for the handle and the
-   picture; `guard_collection_name`. **Not in production as of 2026-10-10.**
-   Applied after 5, and after SQ-app is deployed with the code that names
-   collections through the service role, or those saves are refused. Applying
-   it empties the public directory: each profile is listed again the next time
-   its owner saves it in an app, which is when its handle is checked.
+   picture; `guard_collection_name`. **In production since 2026-10-11**, applied
+   BEFORE SQ-app's matching code because SQ-app is not deployed anywhere and
+   the marketplace holds no data, while the policy it replaces let any
+   signed-in user publish an unchecked artifact through the REST API. The
+   consequence to know: an SQ-app build older than this one cannot create or
+   rename a collection (its write is refused), so deploy SQ-app from this
+   repo's current state, not an older one. Applying it empties the public
+   directory: each profile is listed again the next time its owner saves it in
+   an app, which is when its handle is checked.
 
 3 and 4 are in production as of 2026-09-26 (verified against the live
 schema), applied through the SQL editor, so `list_migrations` has no row for
