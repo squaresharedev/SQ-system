@@ -165,8 +165,23 @@ they cannot flip from one run to the next: a line naming a file on the
 platform's own storage is not sent to the model, and a file field holding
 another website's address is held without asking it. The model names its ground
 in capitals (the policy does), so the ground is lower-cased before it is looked
-up; an unknown ground becomes `other`. Measured on 297 labelled cases: nothing
-prohibited published, no ordinary listing held.
+up; an unknown ground becomes `other`. An image has no listing around it, so it
+breaks a rule only when it presents something prohibited as its subject (a
+bottle of spirits as a product shot, a pistol, drugs) or shows something that
+may not be shown at all (explicit sexual content, gore, hate symbols); a man
+smoking in a portrait, fireworks over a city or wine on a laid table are
+ordinary photographs.
+
+**Measuring it.** Three opt-in evals in SQ-store run the real model:
+`auto-moderation.live.test.ts` over labelled text (`tests/moderation/cases.ts`,
+plus `holdout.ts` and `edge.ts`, written after tuning, the latter by an author
+who never saw the prompt) and `auto-moderation-media.live.test.ts` over real
+photos fetched from Wikimedia Commons and PDFs built from text
+(`tests/moderation/media.ts`). Both are scored by `tests/moderation/score.ts`:
+zero leaks, at most 2% of ordinary content held, and at most 5% of answers
+giving a wrong reason (a ground the case does not allow) or sending the seller
+to the wrong field. Run them after any change to the prompt, the model or the
+answer handling.
 
 **Changing the policy** is an edit to `POLICY_PROMPT` in SQ-store's
 `lib/moderation/auto/policy.ts` (written from section 10 of the terms), then
