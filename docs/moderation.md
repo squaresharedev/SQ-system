@@ -150,6 +150,24 @@ checked before they are stored, and `{ handle }` and `{ avatar: { key, url } }`
 judge a handle and a stored profile picture and record the approval the public
 directory asks for.
 
+**What the policy decides.** The default is `clean`: ordinary goods (furniture,
+perfume, clothing, art, food that is not alcohol, objects around alcohol and
+tobacco such as glassware and humidors) must never be held, and `unsure` needs
+a nameable suspicion (weapon-like goods, a "dupe" of a designer product, coded
+wording, disease-cure claims, text that addresses the checker, a file field
+holding another website's address). Goods restricted to adults are prohibited
+even where lawful: alcohol, tobacco, nicotine and vapes, CBD and other
+cannabinoids, kratom, paraphernalia, sex products, gambling, fireworks and
+anything marked 18+. They are a `violation` with the ground `other`, so no
+vocabulary, schema or table changed for them; the seller is told through the
+"other" reason, which names them. Two further rules are code, not prompt, so
+they cannot flip from one run to the next: a line naming a file on the
+platform's own storage is not sent to the model, and a file field holding
+another website's address is held without asking it. The model names its ground
+in capitals (the policy does), so the ground is lower-cased before it is looked
+up; an unknown ground becomes `other`. Measured on 297 labelled cases: nothing
+prohibited published, no ordinary listing held.
+
 **Changing the policy** is an edit to `POLICY_PROMPT` in SQ-store's
 `lib/moderation/auto/policy.ts` (written from section 10 of the terms), then
 `select moderation_recheck_all()`: the classifier's answers are forgotten, a
